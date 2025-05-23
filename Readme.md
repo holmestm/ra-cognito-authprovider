@@ -2,8 +2,6 @@
 
 An auth provider for [react-admin](https://github.com/marmelab/react-admin) which handles authentication using AWS [Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html).
 
-Based on https://github.com/marmelab/ra-auth-cognito but extended to support pkce/code flow.
-
 This package provides:
 
 -   The `CognitoAuthProvider` function to get the auth provider
