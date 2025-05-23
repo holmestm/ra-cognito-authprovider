@@ -238,7 +238,7 @@ export const CognitoAuthProvider = (
             });
         },
         // called when the API returns an error
-        checkError: async ({ status }) => {
+        checkError: async ({ status }: { status: number }) => {
             logger.info(`checkError [${doingCheckAuth}]:`, status);
             if (status === 401 || status === 403) {
                 const error = new AuthorisationError(`Unauthorized (${status})`);

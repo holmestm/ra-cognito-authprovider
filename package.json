@@ -1,41 +1,38 @@
 {
-    "name": "ra-auth-cognito",
-    "version": "2.0.0",
-    "repository": "git@github.com:holmestm/ra-auth-cognito.git",
+    "name": "@gravitaz/ra-cognito-authprovider",
+    "version": "2.0.2",
+    "repository": "git@github.com:holmestm/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
     "files": [
         "*.md",
         "lib",
-        "esm",
         "src"
     ],
     "main": "lib/index",
-    "module": "esm/index.js",
-    "types": "esm/index.d.ts",
-    "sideEffects": false,
-    "peerDependencies": {
-        "amazon-cognito-identity-js": "^6.3.12",
+    "module": "lib/index.js",
+    "types": "lib/index.d.ts",
+    "dependencies": {
+        "@aws-sdk/client-cognito-identity": "^3.278.0",
+        "@mui/icons-material": "^7.1.0",
+        "@mui/material": "^7.1.0",
+        "@tanstack/react-query": "^5.76.1",
+        "@tanstack/react-query-devtools": "^5.76.1",
+        "amazon-cognito-identity-js": "^6.3.15",
         "qrcode.react": "^3.1.0",
-        "react": "^18.0.0 || ^19.0.0",
-        "react-admin": "^5.1.1",
-        "react-dom": "^18.0.0 || ^19.0.0"
+        "react": "^18.2.0",
+        "react-admin": "^5.7.2",
+        "react-dom": "^18.2.0"
     },
     "scripts": {
-        "build": "yarn run build-cjs && yarn run build-esm",
-        "build-cjs": "rimraf ./lib && tsc",
-        "build-esm": "rimraf ./esm && tsc --outDir esm --module es2015",
-        "watch": "tsc --outDir esm --module es2015 --watch",
-        "lint": "eslint --fix ./src"
+        "build": "rm -fR ./lib && tsc",
+        "watch": "tsc --watch"
     },
     "devDependencies": {
-        "react": "^18.3.1",
-        "react-admin": "^5.1.1",
-        "react-dom": "^18.3.1",
+        "@types/react": "*",
+        "eslint": "^9.27.0",
+        "npm": "^11.4.1",
         "rimraf": "^5.0.5",
-        "typescript": "^5.5.4"
-    },
-    "dependencies": {
-        "simple": "workspace:^"
+        "typescript": "^5.8.3"
     }
 }

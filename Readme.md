@@ -2,6 +2,8 @@
 
 An auth provider for [react-admin](https://github.com/marmelab/react-admin) which handles authentication using AWS [Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html).
 
+Based on https://github.com/marmelab/ra-auth-cognito but extended to support pkce/code flow.
+
 This package provides:
 
 -   The `CognitoAuthProvider` function to get the auth provider
@@ -11,16 +13,17 @@ This package provides:
 ## Supported Cognito Features
 
 -   Username/password authentication
--   OAuth authentication with Implicit code grant
+-   OAuth authentication with Implicit flow
+-   OAuth authentication with Code Grant flow
 
 In all cases, users must be added to the user pool with their email set before they may sign-in in react-admin.
 
 ## Installation
 
 ```sh
-yarn add ra-auth-cognito
+yarn add @gravitaz/ra-cognito-authprovider
 # or
-npm install --save ra-auth-cognito
+npm install --save @gravitaz/ra-cognito-authprovider
 ```
 
 ## Usage With Username/Password Sign-in
@@ -60,7 +63,7 @@ export default App;
 
 If you need to customize this login page, please refer to the [`<LoginForm>` component](#loginform) and [`useCognitoLogin` hook](#usecognitologin) documentation.
 
-## Usage With AWS Hosted UI (OAuth)
+## Usage With AWS Hosted UI (OAuth) - Implicit
 
 ```jsx
 // in src/App.tsx
@@ -76,6 +79,40 @@ const authProvider = CognitoAuthProvider({
     clientId: 'COGNITO_APP_CLIENT_ID',
     userPoolId: 'COGNITO_USERPOOL_ID',
     hostedUIUrl: 'YOUR AWS HOSTED UI URL',
+});
+
+const App = () => {
+    return (
+        <Admin
+            authProvider={authProvider}
+            dataProvider={dataProvider}
+            title="Example Admin"
+            loginPage={false} // We don't need the login page in this case
+        >
+            <Resource name="posts" {...posts} />
+        </Admin>
+    );
+};
+export default App;
+```
+
+## Usage With AWS Hosted UI (OAuth) - Code
+
+```jsx
+// in src/App.tsx
+import React from 'react';
+import { Admin, Resource } from 'react-admin';
+import { CognitoAuthProvider } from 'ra-auth-cognito';
+import { CognitoUserPool } from 'amazon-cognito-identity-js';
+import dataProvider from './dataProvider';
+import posts from './posts';
+
+const authProvider = CognitoAuthProvider({
+    mode: 'oauth',
+    clientId: 'COGNITO_APP_CLIENT_ID',
+    userPoolId: 'COGNITO_USERPOOL_ID',
+    hostedUIUrl: 'YOUR AWS HOSTED UI URL',
+    oauthGrantMode: 'code',
 });
 
 const App = () => {
