@@ -1,13 +1,12 @@
 {
     "name": "@gravitaz/ra-cognito-authprovider",
-    "version": "2.0.4",
+    "version": "2.0.6",
     "repository": "git@github.com:holmestm/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
     "files": [
         "*.md",
-        "lib",
-        "src"
+        "lib"
     ],
     "main": "lib/index.js",
     "types": "lib/index.d.ts",
