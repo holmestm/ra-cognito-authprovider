@@ -1,6 +1,6 @@
 {
     "name": "@gravitaz/ra-cognito-authprovider",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "repository": "git@github.com:holmestm/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
@@ -9,8 +9,8 @@
         "lib",
         "src"
     ],
-    "main": "lib/index",
-    "module": "lib/index.js",
+    "main": "lib/index.js",
+    "module": "lib/index.esm.js",
     "types": "lib/index.d.ts",
     "dependencies": {
         "@aws-sdk/client-cognito-identity": "^3.278.0",
@@ -29,7 +29,7 @@
         "version:patch": "yarn version --patch",
         "version:minor": "yarn version --minor",
         "version:major": "yarn version --major",
-        "publish": "yarn version patch",
+        "publish:patch": "yarn version --patch && yarn publish",
         "watch": "tsc --watch"
     },
     "devDependencies": {
