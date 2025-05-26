@@ -2,6 +2,9 @@
 
 An auth provider for [react-admin](https://github.com/marmelab/react-admin) which handles authentication using AWS [Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html).
 
+Based on [ra-auth-cognito](https://github.com/marmelab/ra-auth-cognito) updated to work with oauth code grant flow. I haven't included the demo code from that repo as it didn't work for me, possibly as for an older version of RA. I also
+found that the 'username' based auth didn't support all the possible Cognito flows (specifically around admin initiated password reset). I haven't really changed any of that code.
+
 This package provides:
 
 -   The `CognitoAuthProvider` function to get the auth provider
