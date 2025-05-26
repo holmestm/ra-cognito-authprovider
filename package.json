@@ -9,7 +9,6 @@
         "lib"
     ],
     "main": "lib/index.js",
-    "module": "lib/index.esm.js",
     "types": "lib/index.d.ts",
     "dependencies": {
         "@aws-sdk/client-cognito-identity": "^3.278.0",
