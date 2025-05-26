@@ -1,6 +1,6 @@
 {
     "name": "@gravitaz/ra-cognito-authprovider",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "repository": "git@github.com:holmestm/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
@@ -26,6 +26,10 @@
     },
     "scripts": {
         "build": "rm -fR ./lib && tsc",
+        "version:patch": "yarn version --patch",
+        "version:minor": "yarn version --minor",
+        "version:major": "yarn version --major",
+        "publish": "yarn version patch",
         "watch": "tsc --watch"
     },
     "devDependencies": {
