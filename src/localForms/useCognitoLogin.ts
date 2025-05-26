@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
+import { FieldValues } from 'react-hook-form';
 import { useLogin } from 'react-admin';
 import { useMutation, UseMutationResult } from '@tanstack/react-query';
-import { ErrorRequireNewPassword } from './errors/ErrorRequireNewPassword';
-import { ErrorMfaTotpRequired } from './errors/ErrorMfaTotpRequired';
-import { ErrorMfaTotpAssociationRequired } from './errors/ErrorMfaTotpAssociationRequired';
+import { ErrorRequireNewPassword } from '../errors/ErrorRequireNewPassword';
+import { ErrorMfaTotpRequired } from '../errors/ErrorMfaTotpRequired';
+import { ErrorMfaTotpAssociationRequired } from '../errors/ErrorMfaTotpAssociationRequired';
 
 export type LoginFormData = {
     username: string;
@@ -27,7 +28,8 @@ export type FormData =
     | LoginFormData
     | NewPasswordFormData
     | TotpFormData
-    | AssociationFormData;
+    | AssociationFormData
+    | FieldValues;
 
 export type UseCognitoLoginResult = [
     (values: FormData) => Promise<unknown>,
