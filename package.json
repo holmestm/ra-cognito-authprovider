@@ -1,6 +1,6 @@
 {
     "name": "ra-cognito-authprovider",
-    "version": "2.0.9",
+    "version": "2.0.10",
     "repository": "git@gitlab.com:txh9364/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
