@@ -1,6 +1,6 @@
 {
-    "name": "ra-cognito-authprovider",
-    "version": "2.0.10",
+    "name": "@yumbrands/ra-cognito-authprovider",
+    "version": "2.0.11",
     "repository": "git@gitlab.com:yumbrands/kfc-global/packages/ra-cognito-authprovider.git",
     "description": "A React Admin Cognito AuthProvider for Yum! Brands",
     "homepage": "https://gitlab.com/yumbrands/kfc-global/packages/ra-cognito-authprovider",
