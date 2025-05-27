@@ -22,9 +22,9 @@ In all cases, users must be added to the user pool with their email set before t
 ## Installation
 
 ```sh
-yarn add @gravitaz/ra-cognito-authprovider
+yarn add @yumbrands/ra-cognito-authprovider
 # or
-npm install --save @gravitaz/ra-cognito-authprovider
+npm install --save @yumbrands/ra-cognito-authprovider
 ```
 
 ## Usage With Username/Password Sign-in
