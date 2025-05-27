@@ -35,7 +35,7 @@ publish:
     - git config --global user.name "${GITLAB_USER_NAME}"
     - git config --global user.email "${GITLAB_USER_EMAIL}"
     - echo "//gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" > .npmrc
-    - echo "@txh9364:registry=https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" >> .npmrc
+    - echo "@yumbrands:registry=https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" >> .npmrc
     - yarn config set registry https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/
     - yarn config set always-auth true
     - yarn publish --non-interactive
