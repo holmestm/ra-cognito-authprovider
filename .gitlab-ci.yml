@@ -1,0 +1,41 @@
+image: node:18
+
+stages:
+  - test
+  - build
+  - publish
+
+cache:
+  paths:
+    - node_modules/
+
+# Install dependencies
+before_script:
+  - yarn install
+
+# Run tests
+test:
+  stage: test
+  script:
+    - yarn test
+
+# Build the package
+build:
+  stage: build
+  script:
+    - yarn build
+  artifacts:
+    paths:
+      - lib/
+
+# Publish to GitLab Package Registry
+publish:
+  stage: publish
+  script:
+    - echo "registry=https://${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/" > .npmrc
+    - echo "//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
+    - yarn publish
+  only:
+    - tags
+  dependencies:
+    - build

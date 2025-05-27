@@ -1,7 +1,7 @@
 {
-    "name": "@gravitaz/ra-cognito-authprovider",
+    "name": "ra-cognito-authprovider",
     "version": "2.0.9",
-    "repository": "git@github.com:holmestm/ra-cognito-authprovider.git",
+    "repository": "git@gitlab.com:txh9364/ra-cognito-authprovider.git",
     "author": "Tim Holmes",
     "license": "MIT",
     "files": [
@@ -26,6 +26,7 @@
     "scripts": {
         "build": "rm -fR ./lib && tsc",
         "publish": "yarn version --patch && yarn build && yarn publish",
+        "publish:gitlab": "yarn publish",
         "watch": "tsc --watch",
         "test": "vitest run",
         "test:watch": "vitest",
