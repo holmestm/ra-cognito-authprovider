@@ -1,7 +1,9 @@
 {
     "name": "ra-cognito-authprovider",
     "version": "2.0.10",
-    "repository": "git@gitlab.com:txh9364/ra-cognito-authprovider.git",
+    "repository": "git@gitlab.com:yumbrands/kfc-global/packages/ra-cognito-authprovider.git",
+    "description": "A React Admin Cognito AuthProvider for Yum! Brands",
+    "homepage": "https://gitlab.com/yumbrands/kfc-global/packages/ra-cognito-authprovider",
     "author": "Tim Holmes",
     "license": "MIT",
     "files": [
