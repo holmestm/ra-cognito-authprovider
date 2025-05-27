@@ -67,17 +67,18 @@ export const pkceCognitoLogin = async (currentUrl: string, options: CognitoAuthP
     const codeVerifier = pkceUtils.generateCodeVerifier();
     const codeChallenge = await pkceUtils.generateCodeChallenge(codeVerifier);
 
+    // Store code verifier in session storage
     logger.info('Setting code verifier:', codeVerifier);
     logger.info('Setting code challenge:', codeChallenge);
-
-    // Store code verifier in session storage
     sessionStorage.setItem('pkce_code_verifier', codeVerifier);
 
     // try and send the user back to the page they were on once we have logged them in
+    logger.info('Storing current URL:', currentUrl);
     localStorage.setItem('currentUrl', currentUrl);
 
     // Construct authorization URL with PKCE
     const authorizationUrl = new URL(`${options.hostedUIUrl}/oauth2/authorize`);
+
     authorizationUrl.searchParams.append('client_id', options.clientId!);
     authorizationUrl.searchParams.append('response_type', 'code');
     authorizationUrl.searchParams.append('scope', options.scope!.join(' '));
@@ -136,4 +137,8 @@ export const codeCognitoCallback = async (userPool: CognitoUserPool, options: Co
   } catch (error) {
     return Promise.reject(error);
   }
-}
+};
+export const createCognitoUserPool = (options: CognitoAuthProviderOptionsIds) => new CognitoUserPool({
+  UserPoolId: options.userPoolId,
+  ClientId: options.clientId,
+});

@@ -7,9 +7,10 @@ import {
     CognitoUserPool,
     CognitoUserSession,
     IAuthenticationCallback,
+    CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import { type AuthProvider, HttpError, type AuthRedirectResult, addRefreshAuthToAuthProvider } from 'react-admin';
-import { QueryFunctionContext } from '@tanstack/react-query'; // Ensure this package is installed
+import { QueryClient, QueryFunctionContext } from '@tanstack/react-query'; // Ensure this package is installed
 
 // Define or import the missing type
 import { ErrorMFASmsRequired } from './errors/ErrorMFASmsRequired';
@@ -21,12 +22,13 @@ import {
     formIsLogin,
     formIsNewPassword,
     formIsTotp,
-} from './useCognitoLogin';
+} from './localLogin/useCognitoLogin';
 import { ErrorMfaTotpAssociationRequired } from './errors/ErrorMfaTotpAssociationRequired';
-import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
+import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, createCognitoUserPool, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
 import { resolveTokens, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
 import logger from './utils/logger';
 import { AuthorisationError } from './errors/AuthorisationError';
+import { create } from '@mui/material/styles/createTransitions';
 
 /**
  * An authProvider which handles authentication with AWS Cognito.
@@ -72,11 +74,11 @@ export type CognitoAuthProviderOptionsPool = CognitoUserPool;
 export type CognitoAuthProviderOptionsIds = {
     userPoolId: string;
     clientId: string;
-    hostedUIUrl?: string;
+    hostedUIUrl: string;
     mode: 'oauth' | 'username';
-    redirect_uri?: string;
-    scope?: string[];
-    oauthGrantType?: 'code' | 'implicit';
+    redirect_uri: string;
+    scope: string[];
+    oauthGrantType: 'code' | 'implicit';
     accessTokenExpiryMargin?: number;
 };
 
@@ -98,24 +100,20 @@ export const CognitoAuthProvider = (
     const userPool =
         options instanceof CognitoUserPool
             ? (options as CognitoUserPool)
-            : new CognitoUserPool({
-                UserPoolId: options.userPoolId,
-                ClientId: options.clientId,
-            });
+            : createCognitoUserPool(options as CognitoAuthProviderOptionsIds);
 
     const oauthOptions = options as CognitoAuthProviderOptionsIds;
     const { redirect_uri, scope, oauthGrantType, hostedUIUrl, clientId, accessTokenExpiryMargin } = { accessTokenExpiryMargin: DEFAULT_ACCESS_TOKEN_EXPIRY_MARGIN, ...oauthOptions };
     let doingCheckAuth = false;
 
-    const authProvider = {
+    const authProvider: AuthProvider = {
         login: async (form: FormData) => {
             logger.info(`Login called [${doingCheckAuth}]:`, form);
-            if (oauthOptions.mode === 'oauth') {
-                doingCheckAuth = false;
-                window.location.assign(`${window.location.origin}/`);
-                return true;
-            }
             return new Promise((resolve, reject) => {
+                if (oauthOptions.mode === 'oauth') {
+                    doingCheckAuth = false;
+                    return reject(new Error('Login method not supported'));
+                }
                 const callback: IAuthenticationCallback = {
                     onSuccess: result => {
                         return resolve(result);
@@ -127,12 +125,12 @@ export const CognitoAuthProvider = (
                         reject(new ErrorRequireNewPassword());
                     },
                     mfaSetup: () => {
-                        user.associateSoftwareToken({
+                        user?.associateSoftwareToken({
                             associateSecretCode: secretCode => {
                                 reject(
                                     new ErrorMfaTotpAssociationRequired({
                                         secretCode,
-                                        username: user.getUsername(),
+                                        username: user!.getUsername(),
                                         applicationName:
                                             config.applicationName ??
                                             window.location.hostname,
@@ -257,12 +255,14 @@ export const CognitoAuthProvider = (
                 doingCheckAuth = mode === 'oauth';
                 const url = new URL(window.location.href);
                 const redirectToOAuthIfNeeded = async (error?: Error) => {
-                    logger.error('CheckAuth error:', error.message, url);
+                    logger.error('CheckAuth error:', error?.message, url);
                     if (mode === 'oauth') {
                         if (oauthGrantType === 'code') {
                             if (!user) {
+                                logger.info('href', window.location.href);
                                 const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
-                                window.location.assign(loginUrl);
+                                logger.info('Redirecting to Cognito login:', loginUrl);
+                                window.location.assign(loginUrl!);
                             } else {
                                 const session = await new Promise<CognitoUserSession>((resolve, reject) => {
                                     user!.getSession((err: Error | null, session: CognitoUserSession) => {
@@ -276,7 +276,8 @@ export const CognitoAuthProvider = (
                                 });
 
                                 if (!session || !session.isValid()) {
-                                    await pkceCognitoLogin(url.toString(), oauthOptions);
+                                    const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
+                                    window.location.assign(loginUrl!);
                                 }
                             }
                             doingCheckAuth = false;
@@ -284,7 +285,7 @@ export const CognitoAuthProvider = (
                         } else { //implicit flow
                             const url = `${hostedUIUrl}/login` +
                                 `?client_id=${clientId}&response_type=token` +
-                                `&scope=${scope.join('+')}&redirect_uri=${redirect_uri}`;
+                                `&scope=${scope!.join('+')}&redirect_uri=${redirect_uri}`;
                             window.location.assign(url);
                         }
                     } else {
@@ -311,7 +312,7 @@ export const CognitoAuthProvider = (
                         );
                     }
 
-                    user.getUserAttributes(err => {
+                    user!.getUserAttributes(err => {
                         if (err) {
                             return reject(err);
                         }
@@ -334,11 +335,11 @@ export const CognitoAuthProvider = (
                     return resolve([]);
                 }
 
-                user.getSession((err: Error, session: CognitoUserSession) => {
+                user.getSession((err: Error | null, session: CognitoUserSession) => {
                     if (err) {
                         return reject(err);
                     }
-                    if (!session.isValid()) {
+                    if (!session || !session.isValid()) {
                         return reject();
                     }
                     const token = session.getIdToken().decodePayload();
@@ -364,22 +365,22 @@ export const CognitoAuthProvider = (
                     if (!session.isValid()) {
                         return reject();
                     }
-                    user.getUserAttributes((err: Error | null, attributes?: NVPair[]) => {
+                    user!.getUserAttributes((err: Error | undefined, attributes?: CognitoUserAttribute[]) => {
                         if (err) {
                             return reject(err);
                         }
 
                         resolve({
-                            id: user.getUsername(),
-                            fullName: attributes?.find((attribute: NVPair) => attribute.Name === 'name')?.Value,
-                            avatar: attributes?.find((attribute: NVPair) => attribute.Name === 'picture')?.Value,
+                            id: user!.getUsername(),
+                            fullName: attributes!.find((attribute: NVPair) => attribute.Name === 'name')?.Value,
+                            avatar: attributes!.find((attribute: NVPair) => attribute.Name === 'picture')?.Value,
                             cognitoUser: user,
                         } as CognitoIdentity);
                     });
                 });
             });
         },
-        handleCallback: async (params?: QueryFunctionContext) => {
+        handleCallback: async () => {
             return new Promise<AuthRedirectResult | void | any>(async (resolve, reject) => {
                 logger.info(`handleCallback called [${doingCheckAuth}]:`);
                 doingCheckAuth = false;
@@ -387,9 +388,9 @@ export const CognitoAuthProvider = (
                     const url = new URL(window.location.href);
                     const code = url.searchParams.get('code');
                     if (!code) {
-                        throw new Error('No authorization code in callback URL');
+                        reject(new HttpError('No authorization code in callback URL', 400));
                     }
-                    const tokens: CognitoTokens = await resolveTokens(code, oauthOptions);
+                    const tokens: CognitoTokens = await resolveTokens(code!, oauthOptions);
 
                     // Store tokens
                     localStorage.setItem('auth', JSON.stringify(tokens));
@@ -405,7 +406,7 @@ export const CognitoAuthProvider = (
                     try {
                         const previousUrl = localStorage.getItem('currentUrl');
                         localStorage.removeItem('currentUrl');
-                        window.location.assign(previousUrl);
+                        window.location.assign(previousUrl || '/');
                         resolve({})
                     } catch (error) {
                         logger.error('Error getting previous URL:', error);
@@ -421,17 +422,15 @@ export const CognitoAuthProvider = (
                     const accessToken = urlParams.get('access_token');
 
                     if (error) {
-                        reject(error);
+                        return reject(error);
                     }
 
                     if (idToken == null || accessToken == null) {
-                        throw new Error('Failed to handle login callback (implicit oauth flow).');
+                        return reject(new Error('Failed to handle login callback (implicit oauth flow).'));
                     }
                     const session = new CognitoUserSession({
                         IdToken: new CognitoIdToken({ IdToken: idToken }),
-                        RefreshToken: new CognitoRefreshToken({
-                            RefreshToken: null,
-                        }),
+                        RefreshToken: undefined,
                         AccessToken: new CognitoAccessToken({
                             AccessToken: accessToken,
                         }),
@@ -447,8 +446,9 @@ export const CognitoAuthProvider = (
                     resolve({})
                 }
             })
-        },
+        }
     };
+
     return addRefreshAuthToAuthProvider(authProvider, async () => {
         if (aboutToExpire(accessTokenExpiryMargin!)) {
             await refreshTokens(oauthOptions);

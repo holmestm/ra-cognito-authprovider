@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Login as RaLogin, useNotify } from 'react-admin';
+import { Login as RaLogin, SaveHandler, useNotify } from 'react-admin';
 import { SubmitHandler } from 'react-hook-form';
 import { MfaTotpAssociationForm } from './MfaTotpAssociationForm';
 import { RequestNewPasswordForm } from './RequestNewPasswordForm';
@@ -34,7 +34,7 @@ export const LoginForm = (props: any) => {
         redirectTo,
     });
 
-    const submit: SubmitHandler<FormData> = values => {
+    const submit: SubmitHandler<FormData> = (values: FormData) => {
         login(values).catch(error => {
             notify(
                 typeof error === 'string'
