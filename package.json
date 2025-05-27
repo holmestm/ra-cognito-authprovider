@@ -25,8 +25,8 @@
     },
     "scripts": {
         "build": "rm -fR ./lib && tsc",
-        "publish": "yarn version --patch && yarn build && yarn publish",
-        "publish:gitlab": "yarn publish",
+        "publish:patch": "yarn version --patch && yarn build && yarn publish",
+        "publish:gitlab": "yarn publish --non-interactive",
         "watch": "tsc --watch",
         "test": "vitest run",
         "test:watch": "vitest",
