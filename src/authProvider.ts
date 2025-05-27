@@ -22,12 +22,13 @@ import {
     formIsLogin,
     formIsNewPassword,
     formIsTotp,
-} from './localForms/useCognitoLogin';
+} from './localLogin/useCognitoLogin';
 import { ErrorMfaTotpAssociationRequired } from './errors/ErrorMfaTotpAssociationRequired';
-import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
+import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, createCognitoUserPool, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
 import { resolveTokens, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
 import logger from './utils/logger';
 import { AuthorisationError } from './errors/AuthorisationError';
+import { create } from '@mui/material/styles/createTransitions';
 
 /**
  * An authProvider which handles authentication with AWS Cognito.
@@ -73,11 +74,11 @@ export type CognitoAuthProviderOptionsPool = CognitoUserPool;
 export type CognitoAuthProviderOptionsIds = {
     userPoolId: string;
     clientId: string;
-    hostedUIUrl?: string;
+    hostedUIUrl: string;
     mode: 'oauth' | 'username';
-    redirect_uri?: string;
-    scope?: string[];
-    oauthGrantType?: 'code' | 'implicit';
+    redirect_uri: string;
+    scope: string[];
+    oauthGrantType: 'code' | 'implicit';
     accessTokenExpiryMargin?: number;
 };
 
@@ -99,10 +100,7 @@ export const CognitoAuthProvider = (
     const userPool =
         options instanceof CognitoUserPool
             ? (options as CognitoUserPool)
-            : new CognitoUserPool({
-                UserPoolId: options.userPoolId,
-                ClientId: options.clientId,
-            });
+            : createCognitoUserPool(options as CognitoAuthProviderOptionsIds);
 
     const oauthOptions = options as CognitoAuthProviderOptionsIds;
     const { redirect_uri, scope, oauthGrantType, hostedUIUrl, clientId, accessTokenExpiryMargin } = { accessTokenExpiryMargin: DEFAULT_ACCESS_TOKEN_EXPIRY_MARGIN, ...oauthOptions };
@@ -111,12 +109,11 @@ export const CognitoAuthProvider = (
     const authProvider: AuthProvider = {
         login: async (form: FormData) => {
             logger.info(`Login called [${doingCheckAuth}]:`, form);
-            if (oauthOptions.mode === 'oauth') {
-                doingCheckAuth = false;
-                window.location.assign(`${window.location.origin}/`);
-                return true;
-            }
             return new Promise((resolve, reject) => {
+                if (oauthOptions.mode === 'oauth') {
+                    doingCheckAuth = false;
+                    return reject(new Error('Login method not supported'));
+                }
                 const callback: IAuthenticationCallback = {
                     onSuccess: result => {
                         return resolve(result);
@@ -262,7 +259,9 @@ export const CognitoAuthProvider = (
                     if (mode === 'oauth') {
                         if (oauthGrantType === 'code') {
                             if (!user) {
+                                logger.info('href', window.location.href);
                                 const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
+                                logger.info('Redirecting to Cognito login:', loginUrl);
                                 window.location.assign(loginUrl!);
                             } else {
                                 const session = await new Promise<CognitoUserSession>((resolve, reject) => {
@@ -277,7 +276,8 @@ export const CognitoAuthProvider = (
                                 });
 
                                 if (!session || !session.isValid()) {
-                                    await pkceCognitoLogin(url.toString(), oauthOptions);
+                                    const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
+                                    window.location.assign(loginUrl!);
                                 }
                             }
                             doingCheckAuth = false;
@@ -388,9 +388,9 @@ export const CognitoAuthProvider = (
                     const url = new URL(window.location.href);
                     const code = url.searchParams.get('code');
                     if (!code) {
-                        throw new Error('No authorization code in callback URL');
+                        reject(new HttpError('No authorization code in callback URL', 400));
                     }
-                    const tokens: CognitoTokens = await resolveTokens(code, oauthOptions);
+                    const tokens: CognitoTokens = await resolveTokens(code!, oauthOptions);
 
                     // Store tokens
                     localStorage.setItem('auth', JSON.stringify(tokens));

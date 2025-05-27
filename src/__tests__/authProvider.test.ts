@@ -1,47 +1,86 @@
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CognitoAuthProvider } from '../authProvider';
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
+import { CognitoAuthProvider, CognitoAuthProviderOptionsIds } from '../authProvider';
 import { AuthProvider } from 'react-admin';
 
-// Mock amazon-cognito-identity-js
-vi.mock('amazon-cognito-identity-js', () => {
-  const mockGetCurrentUser = vi.fn();
+// Import storage mocks
+import { setupStorageMocks, resetStorageMocks } from '../test/localStorage.mock';
+
+const mocks: any = vi.hoisted(() => {
+  const mockCognitoUserSession = vi.fn(() => ({
+    isValid: vi.fn(() => true),
+    getIdToken: vi.fn(() => ({
+      decodePayload: vi.fn(() => ({ 'cognito:groups': ['admin'] })),
+    })),
+  }));
   const mockCognitoUser = {
-    getSession: vi.fn(),
+    getSession: mockCognitoUserSession,
     getUserAttributes: vi.fn(),
     getUsername: vi.fn(() => 'testuser'),
     setSignInUserSession: vi.fn(),
   };
+  const mockGetCurrentUser = vi.fn(() => mockCognitoUser) as Mock | undefined;
 
   return {
-    CognitoUserPool: vi.fn(() => ({
+    mockCognitoUserSession,
+    mockCognitoUser,
+    mockGetCurrentUser,
+    mockCognitoUserPool: vi.fn(() => ({
       getCurrentUser: mockGetCurrentUser,
-    })),
-    CognitoUser: vi.fn(() => mockCognitoUser),
-    CognitoUserSession: vi.fn(() => ({
-      isValid: vi.fn(() => true),
-      getIdToken: vi.fn(() => ({
-        decodePayload: vi.fn(() => ({ 'cognito:groups': ['admin'] })),
-      })),
-    })),
+    }))
+  }
+});
+
+// Mock amazon-cognito-identity-js
+vi.mock('amazon-cognito-identity-js', () => {
+  return {
+    CognitoUserPool: mocks.mockCognitoUserPool,
+    CognitoUser: mocks.mockGetCurrentUser,
+    CognitoUserSession: mocks.mockCognitoUserSession,
     CognitoIdToken: vi.fn(),
     CognitoAccessToken: vi.fn(),
     CognitoRefreshToken: vi.fn(),
   };
 });
 
-describe('createCognitoAuthProvider', () => {
-  let providerOptions: CognitoUserPool;
-  let authProvider: AuthProvider;
+describe('CognitoAuthProvider', () => {
+  let mockUserPool: CognitoUserPool;
+  let authProvider: any;
   let mockUser: any;
   let mockSession: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    providerOptions = new CognitoUserPool({
-      UserPoolId: 'test-pool-id',
-      ClientId: 'test-client-id',
+    // Reset window.location.assign mock
+    (window.location.assign as any).mockReset();
+
+    // Setup localStorage and sessionStorage mocks
+    setupStorageMocks();
+
+    // Mock window.location
+    Object.defineProperty(window, 'location', {
+      value: {
+        ...window.location,
+        assign: vi.fn(),
+        href: 'https://example.com/secure',
+      },
+      writable: true,
+    });
+
+    const baseProviderOptions: CognitoAuthProviderOptionsIds = {
+      userPoolId: 'test-pool-id',
+      clientId: 'test-client-id',
+      mode: 'oauth',
+      oauthGrantType: 'code',
+      hostedUIUrl: 'https://idp.cognito.com',
+      scope: ['openid', 'email', 'profile'],
+      redirect_uri: 'https://example.com/callback',
+    };
+
+    mockUserPool = new CognitoUserPool({
+      UserPoolId: baseProviderOptions.userPoolId,
+      ClientId: baseProviderOptions.clientId,
     });
 
     mockUser = {
@@ -57,13 +96,16 @@ describe('createCognitoAuthProvider', () => {
       })),
     };
 
-    (providerOptions.getCurrentUser as any).mockReturnValue(mockUser);
+    // Set default return value for mockGetCurrentUser
+    mocks.mockGetCurrentUser.mockReturnValue(mockUser);
 
-    const options = { userPool: providerOptions };
+    const options: CognitoAuthProviderOptionsIds = {
+      ...baseProviderOptions
+    };
     const config = {}
 
     authProvider = CognitoAuthProvider(
-      providerOptions,
+      options,
       { applicationName: 'TestApp' }
     );
   });
@@ -80,29 +122,31 @@ describe('createCognitoAuthProvider', () => {
       await expect(authProvider.checkAuth()).resolves.not.toThrow();
     });
 
-    it('should reject when no user is found', async () => {
-      (providerOptions.getCurrentUser as any).mockReturnValueOnce(null);
+    it('should redirect when no user is found', async () => {
+      mocks.mockGetCurrentUser.mockReturnValueOnce(undefined);
 
-      await expect(authProvider.checkAuth()).rejects.toThrow();
+      await authProvider.checkAuth();
+      expect(window.location.assign).toHaveBeenCalled;
+      expect(window.location.assign).toHaveBeenCalledWith(expect.stringContaining('/oauth2/authorize'));
     });
 
-    it('should reject when session is invalid', async () => {
+    it('should redirect when session is invalid', async () => {
       mockUser.getSession.mockImplementationOnce((callback: (arg0: null, arg1: { isValid: () => boolean; }) => void) => {
         callback(null, { isValid: () => false });
       });
-
-      await expect(authProvider.checkAuth()).rejects.toThrow();
+      expect(window.location.assign).toHaveBeenCalled;
     });
   });
 
   describe('getPermissions', () => {
     it('should return user groups', async () => {
+      mocks.mockGetCurrentUser.mockReturnValueOnce(mockUser);
       const permissions = await authProvider.getPermissions();
       expect(permissions).toEqual(['admin']);
     });
 
     it('should return empty array when no user is found', async () => {
-      (providerOptions.getCurrentUser as any).mockReturnValueOnce(null);
+      mocks.mockGetCurrentUser.mockReturnValueOnce(null);
 
       const permissions = await authProvider.getPermissions();
       expect(permissions).toEqual([]);
@@ -129,9 +173,14 @@ describe('createCognitoAuthProvider', () => {
     });
 
     it('should reject when no user is found', async () => {
-      (providerOptions.getCurrentUser as any).mockReturnValueOnce(null);
+      mocks.mockGetCurrentUser.mockReturnValueOnce(null);
 
       await expect(authProvider.getIdentity()).rejects.toEqual(undefined);
     });
+  });
+
+  afterEach(() => {
+    // Reset localStorage and sessionStorage mocks
+    resetStorageMocks();
   });
 });
