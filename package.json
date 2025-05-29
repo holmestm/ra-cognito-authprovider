@@ -1,6 +1,6 @@
 {
-    "name": "@gravitaz/ra-cognito-authprovider",
-    "version": "2.0.15",
+    "name": "@yumbrands/ra-cognito-authprovider",
+    "version": "2.0.16",
     "description": "A React Admin Cognito AuthProvider that supports code flow",
     "author": "Tim Holmes",
     "license": "MIT",
