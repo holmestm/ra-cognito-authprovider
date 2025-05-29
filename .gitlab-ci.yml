@@ -12,7 +12,9 @@ cache:
 
 # Install dependencies
 before_script:
-  - jq '.name = "@yumbrands/ra-cognito-authprovider"' package.json > temp.json && mv temp.json package.json
+  - cp package.json package.json.bak
+  - sed -i 's/"ra-cognito-authprovider"/"@yumbrands\/ra-cognito-authprovider"/' package.json
+  - mv package.json.bak package.json
   - yarn install
 
 # Run tests
