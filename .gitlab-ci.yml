@@ -8,9 +8,11 @@ stages:
 cache:
   paths:
     - node_modules/
+    - package.json
 
 # Install dependencies
 before_script:
+  - jq '.name = "@yumbrands/ra-cognito-authprovider"' package.json > temp.json && mv temp.json package.json
   - yarn install
 
 # Run tests
