@@ -42,7 +42,7 @@ describe('localStorage mock', () => {
     localStorage.setItem('key1', 'value1');
     localStorage.setItem('key2', 'value2');
 
-    const keys = [];
+    const keys: string[] = [];
     for (const key in localStorage) {
       // Only include actual storage keys, not methods or properties
       if (key === 'key1' || key === 'key2') {

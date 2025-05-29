@@ -1,27 +1,36 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "ES5",
+    "module": "commonjs",
+    "lib": [
+      "DOM",
+      "es2017"
+    ],
     "useDefineForClassFields": true,
     "declaration": true,
     "declarationMap": true,
+    "allowJs": false,
+    "jsx": "react-jsx",
+    "noImplicitAny": false,
+    "noFallthroughCasesInSwitch": true /* Report errors for fallthrough cases in switch statement. */,
+    "moduleResolution": "node" /* Specify module resolution strategy: 'node' (Node.js) or 'classic' (TypeScript pre-1.6). */,
+    "allowSyntheticDefaultImports": true /* Allow default imports from modules with no default export. This does not affect code emit, just typechecking. */,
+    "esModuleInterop": true /* Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports. Implies 'allowSyntheticDefaultImports'. */,
+    "skipLibCheck": true,
     "sourceMap": true,
     "outDir": "./lib",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ESNext"
-    ],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
-    "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": false,
-    "jsx": "react-jsx"
   },
+  "exclude": [
+    "node_modules",
+    "esm",
+    "lib",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.spec.js"
+  ],
+  "include": ["src", "stories"],    
 }
