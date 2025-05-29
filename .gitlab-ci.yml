@@ -14,7 +14,6 @@ cache:
 before_script:
   - cp package.json package.json.bak
   - sed -i 's/"ra-cognito-authprovider"/"@yumbrands\/ra-cognito-authprovider"/' package.json
-  - mv package.json.bak package.json
   - yarn install
 
 # Run tests
@@ -43,6 +42,8 @@ publish:
     - yarn config set registry https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/
     - yarn config set always-auth true
     - yarn publish --non-interactive
+    - mv package.json.bak package.json
+
   only:
     - main
   dependencies:
