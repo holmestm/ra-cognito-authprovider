@@ -26,10 +26,13 @@ test:
 build:
   stage: build
   script:
-    - yarn build
+    - yarn build-cjs
   artifacts:
     paths:
       - lib/
+      - esm/
+    dependencies:
+      - test
 
 # Publish to GitLab Package Registry
 publish:
