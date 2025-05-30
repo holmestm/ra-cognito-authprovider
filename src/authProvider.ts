@@ -10,7 +10,6 @@ import {
     CognitoUserAttribute,
 } from 'amazon-cognito-identity-js';
 import { type AuthProvider, HttpError, type AuthRedirectResult, addRefreshAuthToAuthProvider } from 'react-admin';
-import { QueryClient, QueryFunctionContext } from '@tanstack/react-query'; // Ensure this package is installed
 
 // Define or import the missing type
 import { ErrorMFASmsRequired } from './errors/ErrorMFASmsRequired';
@@ -28,7 +27,6 @@ import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession
 import { resolveTokens, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
 import logger from './utils/logger';
 import { AuthorisationError } from './errors/AuthorisationError';
-import { create } from '@mui/material/styles/createTransitions';
 
 /**
  * An authProvider which handles authentication with AWS Cognito.
