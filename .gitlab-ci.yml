@@ -14,7 +14,7 @@ cache:
 before_script:
   - cp package.json package.json.bak
   - sed -i 's/"ra-cognito-authprovider"/"@yumbrands\/ra-cognito-authprovider"/' package.json
-  - echo "Version:" `node -p "require('../artifactApp/package.json').version"`
+  - echo "Version:" `node -p "require('package.json').version"`
   - yarn install
 
 # Run tests
