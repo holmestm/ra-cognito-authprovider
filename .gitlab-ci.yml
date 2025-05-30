@@ -31,8 +31,8 @@ build:
     paths:
       - lib/
       - esm/
-    dependencies:
-      - test
+  dependencies:
+    - test
 
 # Publish to GitLab Package Registry
 publish:
