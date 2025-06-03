@@ -3,6 +3,7 @@ import { clearLocalStorage, cognitoLogout, pkceCognitoLogin } from '../utils/cog
 import { localStorageMock, sessionStorageMock, setupStorageMocks, resetStorageMocks } from '../test/localStorage.mock';
 import { pkceUtils } from '../utils/pkceUtils';
 import { CognitoAuthProviderOptionsIds } from '../authProvider';
+import { CognitoIdToken } from 'amazon-cognito-identity-js';
 
 // Mock window.location
 Object.defineProperty(window, 'location', {
@@ -120,7 +121,7 @@ describe('cognitoUtils', () => {
       // Verify localStorage was cleared
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('auth');
       expect(localStorageMock.removeItem).toHaveBeenCalledWith('CognitoIdentityServiceProvider');
-
+      console.log('logoutUrl', logoutUrl);
       // Verify logout URL was constructed correctly
       expect(logoutUrl).toContain('https://auth.example.com/logout');
       expect(logoutUrl).toContain('client_id=test-client-id');

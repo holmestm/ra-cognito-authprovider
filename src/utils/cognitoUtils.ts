@@ -1,8 +1,8 @@
 import { CognitoAuthProviderOptionsIds } from "../authProvider"
 import { pkceUtils } from "./pkceUtils";
-import { CognitoUserSession, CognitoIdToken, CognitoRefreshToken, CognitoAccessToken, CognitoUser, CognitoUserPool, ICognitoUserSessionData } from "amazon-cognito-identity-js";
+import { CognitoUserSession, CognitoUser, CognitoUserPool, ICognitoUserSessionData, CognitoAccessToken, CognitoIdToken, CognitoRefreshToken } from "amazon-cognito-identity-js";
 import logger from "./logger";
-import { revokeTokens } from "./cognitoTokens";
+import { CognitoTokens, revokeTokens } from "./cognitoTokens";
 
 export type CognitoIdentity = {
   id: string;
@@ -29,7 +29,7 @@ export const cognitoLogout = async (options: CognitoAuthProviderOptionsIds) => {
   const { hostedUIUrl, clientId } = options;
   try {
     // Get current auth state
-    const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+    const auth: CognitoTokens = JSON.parse(localStorage.getItem('auth') || '{}');
 
     // Construct logout URL with all necessary parameters
     const logoutUrl = new URL(`${hostedUIUrl!.replace('/login', '')}/logout`);
@@ -88,14 +88,23 @@ export const pkceCognitoLogin = async (currentUrl: string, options: CognitoAuthP
   }
 };
 
+const assembleTokens = ({ id_token, access_token, refresh_token }: CognitoTokens) => {
+  return {
+    IdToken: new CognitoIdToken({ IdToken: id_token }),
+    RefreshToken: refresh_token ? new CognitoRefreshToken({ RefreshToken: refresh_token }) : undefined,
+    AccessToken: new CognitoAccessToken({ AccessToken: access_token }),
+  } as ICognitoUserSessionData;
+};
+
 export const createCognitoSession = (
-  tokens: ICognitoUserSessionData,
+  tokens: CognitoTokens,
   userPool: CognitoUserPool
 ): CognitoUser => {
   // Create Cognito User and Session
-  const session = new CognitoUserSession(tokens);
+  const cognitoTokens = assembleTokens(tokens);
+  const session = new CognitoUserSession(cognitoTokens); // handles refresh flow if token supplied
   const user = new CognitoUser({
-    Username: tokens.IdToken.decodePayload()['cognito:username'],
+    Username: cognitoTokens.IdToken.decodePayload()['cognito:username'],
     Pool: userPool,
     Storage: window.localStorage,
   });

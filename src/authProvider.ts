@@ -1,8 +1,5 @@
 import {
     AuthenticationDetails,
-    CognitoAccessToken,
-    CognitoIdToken,
-    CognitoRefreshToken,
     CognitoUser,
     CognitoUserPool,
     CognitoUserSession,
@@ -10,7 +7,7 @@ import {
     CognitoUserAttribute,
     ICognitoUserSessionData,
 } from 'amazon-cognito-identity-js';
-import { type AuthProvider, HttpError, type AuthRedirectResult, addRefreshAuthToAuthProvider } from 'react-admin';
+import { type AuthProvider, HttpError, type AuthRedirectResult } from 'react-admin';
 
 // Define or import the missing type
 import { ErrorMFASmsRequired } from './errors/ErrorMFASmsRequired';
@@ -25,7 +22,7 @@ import {
 } from './localLogin/useCognitoLogin';
 import { ErrorMfaTotpAssociationRequired } from './errors/ErrorMfaTotpAssociationRequired';
 import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, createCognitoUserPool, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
-import { resolveTokensFromCode, resolveTokensFromUrl, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
+import { CognitoTokens, resolveTokensFromCode, resolveTokensFromUrl } from './utils/cognitoTokens';
 import logger from './utils/logger';
 import { AuthorisationError } from './errors/AuthorisationError';
 
@@ -102,7 +99,7 @@ export const CognitoAuthProvider = (
             : createCognitoUserPool(options as CognitoAuthProviderOptionsIds);
 
     const oauthOptions = options as CognitoAuthProviderOptionsIds;
-    const { redirect_uri, scope, oauthGrantType, hostedUIUrl, clientId, accessTokenExpiryMargin } = { accessTokenExpiryMargin: DEFAULT_ACCESS_TOKEN_EXPIRY_MARGIN, ...oauthOptions };
+    const { redirect_uri, scope, oauthGrantType, hostedUIUrl, clientId } = oauthOptions as CognitoAuthProviderOptionsIds;
     let doingCheckAuth = false;
 
     const authProvider: AuthProvider = {
@@ -376,7 +373,7 @@ export const CognitoAuthProvider = (
                     return reject(new Error('Username mode not supported for handleCallback'));
                 }
                 doingCheckAuth = false;
-                let tokens: ICognitoUserSessionData;
+                let tokens: CognitoTokens;
                 const url = new URL(window.location.href);
                 if (oauthOptions.oauthGrantType === 'code') {
                     const code = url.searchParams.get('code');
@@ -400,7 +397,7 @@ export const CognitoAuthProvider = (
                             logger.error('Error in OAuth implicit callback:', error);
                             return reject(error);
                         }
-                        tokens = resolveTokensFromUrl(hashParams, oauthOptions);
+                        tokens = resolveTokensFromUrl(hashParams);
                     } catch (error) {
                         logger.error('Error resolving implicit tokens from URL hash:', error);
                         return reject(error);
@@ -436,14 +433,6 @@ export const CognitoAuthProvider = (
         },
     };
 
-    if (oauthOptions.oauthGrantType === 'code') {
-        return addRefreshAuthToAuthProvider(authProvider, async () => {
-            if (aboutToExpire(accessTokenExpiryMargin!)) {
-                await refreshTokens(oauthOptions);
-            }
-        })
-    } else {
-        return authProvider;
-    }
+    return authProvider;
 };
 
