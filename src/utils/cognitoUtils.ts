@@ -1,8 +1,8 @@
 import { CognitoAuthProviderOptionsIds } from "../authProvider"
 import { pkceUtils } from "./pkceUtils";
-import { CognitoUserSession, CognitoIdToken, CognitoRefreshToken, CognitoAccessToken, CognitoUser, CognitoUserPool } from "amazon-cognito-identity-js";
+import { CognitoUserSession, CognitoIdToken, CognitoRefreshToken, CognitoAccessToken, CognitoUser, CognitoUserPool, ICognitoUserSessionData } from "amazon-cognito-identity-js";
 import logger from "./logger";
-import { CognitoTokens, resolveTokens, revokeTokens } from "./cognitoTokens";
+import { revokeTokens } from "./cognitoTokens";
 
 export type CognitoIdentity = {
   id: string;
@@ -28,7 +28,6 @@ export const clearLocalStorage = () => {
 export const cognitoLogout = async (options: CognitoAuthProviderOptionsIds) => {
   const { hostedUIUrl, clientId } = options;
   try {
-    logger.info('Cognito Logout called:');
     // Get current auth state
     const auth = JSON.parse(localStorage.getItem('auth') || '{}');
 
@@ -61,19 +60,15 @@ export const cognitoLogout = async (options: CognitoAuthProviderOptionsIds) => {
 };
 
 export const pkceCognitoLogin = async (currentUrl: string, options: CognitoAuthProviderOptionsIds) => {
-  logger.info('PKCE Login called:')
   try {
     // Generate PKCE values
     const codeVerifier = pkceUtils.generateCodeVerifier();
     const codeChallenge = await pkceUtils.generateCodeChallenge(codeVerifier);
 
     // Store code verifier in session storage
-    logger.info('Setting code verifier:', codeVerifier);
-    logger.info('Setting code challenge:', codeChallenge);
     sessionStorage.setItem('pkce_code_verifier', codeVerifier);
 
     // try and send the user back to the page they were on once we have logged them in
-    logger.info('Storing current URL:', currentUrl);
     localStorage.setItem('currentUrl', currentUrl);
 
     // Construct authorization URL with PKCE
@@ -94,17 +89,13 @@ export const pkceCognitoLogin = async (currentUrl: string, options: CognitoAuthP
 };
 
 export const createCognitoSession = (
-  tokens: CognitoTokens,
+  tokens: ICognitoUserSessionData,
   userPool: CognitoUserPool
 ): CognitoUser => {
   // Create Cognito User and Session
-  const session = new CognitoUserSession({
-    IdToken: new CognitoIdToken({ IdToken: tokens.id_token }),
-    RefreshToken: new CognitoRefreshToken({ RefreshToken: tokens.refresh_token }),
-    AccessToken: new CognitoAccessToken({ AccessToken: tokens.accessToken }),
-  });
+  const session = new CognitoUserSession(tokens);
   const user = new CognitoUser({
-    Username: session.getIdToken().decodePayload()['cognito:username'],
+    Username: tokens.IdToken.decodePayload()['cognito:username'],
     Pool: userPool,
     Storage: window.localStorage,
   });
@@ -112,32 +103,6 @@ export const createCognitoSession = (
   return user;
 };
 
-export const codeCognitoCallback = async (userPool: CognitoUserPool, options: CognitoAuthProviderOptionsIds) => {
-  try {
-    const url = new URL(window.location.href);
-    const code = url.searchParams.get('code');
-    if (!code) {
-      throw new Error('No authorization code in callback URL');
-    }
-
-    const tokens: CognitoTokens = await resolveTokens(code, options);
-
-    // Store tokens
-    localStorage.setItem('auth', JSON.stringify(tokens));
-
-    // Clean up code verifier
-    sessionStorage.removeItem('pkce_code_verifier');
-
-    const user = createCognitoSession(tokens, userPool);
-
-    logger.info('User Object Created:', user);
-
-    // Redirect to admin panel
-    return user;
-  } catch (error) {
-    return Promise.reject(error);
-  }
-};
 export const createCognitoUserPool = (options: CognitoAuthProviderOptionsIds) => new CognitoUserPool({
   UserPoolId: options.userPoolId,
   ClientId: options.clientId,

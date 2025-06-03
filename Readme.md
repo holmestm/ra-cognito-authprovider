@@ -1,4 +1,4 @@
-# ra-auth-cognito
+# ra-cognito-authprovider
 
 An auth provider for [react-admin](https://github.com/marmelab/react-admin) which handles authentication using AWS [Cognito](https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html).
 
@@ -28,6 +28,8 @@ npm install --save @yumbrands/ra-cognito-authprovider
 ```
 
 ## Usage With Username/Password Sign-in
+
+
 
 When not using the AWS hosted UI, users you create in AWS will receive an email with a temporary password. The first time they log in the application with this temporary password, they will have to enter the password they want to use. To handle this use case, `ra-auth-cognito` provides a custom `<Login>` component that you can pass to you `<Admin>` through the `loginPage` prop:
 
@@ -70,7 +72,7 @@ If you need to customize this login page, please refer to the [`<LoginForm>` com
 // in src/App.tsx
 import React from 'react';
 import { Admin, Resource } from 'react-admin';
-import { CognitoAuthProvider } from 'ra-auth-cognito';
+import { CognitoAuthProvider } from 'ra-cognito-authprovider';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import dataProvider from './dataProvider';
 import posts from './posts';
@@ -103,7 +105,7 @@ export default App;
 // in src/App.tsx
 import React from 'react';
 import { Admin, Resource } from 'react-admin';
-import { CognitoAuthProvider } from 'ra-auth-cognito';
+import { CognitoAuthProvider } from 'ra-cognito-authprovider';
 import { CognitoUserPool } from 'amazon-cognito-identity-js';
 import dataProvider from './dataProvider';
 import posts from './posts';
@@ -145,7 +147,7 @@ A component that renders a login form. It handles first login with temporary pas
 
 ```tsx
 import { Box, Card, CardContent, CardMedia, CssBaseline } from '@mui/material';
-import { LoginForm } from 'ra-auth-cognito';
+import { LoginForm } from 'ra-cognito-authprovider';
 
 export const MyLoginPage = () => {
     return (
@@ -173,7 +175,7 @@ This hook will handle the login process, detecting whether users must provide th
 
 ```tsx
 import { Box, Card, CardContent, CardMedia, CssBaseline } from '@mui/material';
-import { useCognitoLogin } from 'ra-auth-cognito';
+import { useCognitoLogin } from 'ra-cognito-authprovider';
 import { LoginForm } from './LoginForm';
 import { PasswordSetupForm } from './PasswordSetupForm';
 

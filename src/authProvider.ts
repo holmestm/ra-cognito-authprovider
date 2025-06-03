@@ -8,6 +8,7 @@ import {
     CognitoUserSession,
     IAuthenticationCallback,
     CognitoUserAttribute,
+    ICognitoUserSessionData,
 } from 'amazon-cognito-identity-js';
 import { type AuthProvider, HttpError, type AuthRedirectResult, addRefreshAuthToAuthProvider } from 'react-admin';
 
@@ -24,7 +25,7 @@ import {
 } from './localLogin/useCognitoLogin';
 import { ErrorMfaTotpAssociationRequired } from './errors/ErrorMfaTotpAssociationRequired';
 import { clearLocalStorage, CognitoIdentity, cognitoLogout, createCognitoSession, createCognitoUserPool, NVPair, pkceCognitoLogin } from "./utils/cognitoUtils";
-import { resolveTokens, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
+import { resolveTokensFromCode, resolveTokensFromUrl, CognitoTokens, aboutToExpire, refreshTokens } from './utils/cognitoTokens';
 import logger from './utils/logger';
 import { AuthorisationError } from './errors/AuthorisationError';
 
@@ -106,11 +107,10 @@ export const CognitoAuthProvider = (
 
     const authProvider: AuthProvider = {
         login: async (form: FormData) => {
-            logger.info(`Login called [${doingCheckAuth}]:`, form);
             return new Promise((resolve, reject) => {
                 if (oauthOptions.mode === 'oauth') {
                     doingCheckAuth = false;
-                    return reject(new Error('Login method not supported'));
+                    return reject(new Error('Login method not supported with OAuth.'));
                 }
                 const callback: IAuthenticationCallback = {
                     onSuccess: result => {
@@ -206,7 +206,6 @@ export const CognitoAuthProvider = (
         },
         // called when the user clicks on the logout button
         logout: async () => {
-            logger.info(`Logout called [${doingCheckAuth}]:`);
             return new Promise<void>((resolve, reject) => {
                 if (mode === 'username') {
                     const user = userPool.getCurrentUser();
@@ -221,7 +220,6 @@ export const CognitoAuthProvider = (
                         .then((logoutUrl) => {
                             user = null;
                             if (logoutUrl) {
-                                logger.info('Cognito Logout Callback, redirecting to', logoutUrl);
                                 window.location.assign(logoutUrl);
                             }
                         })
@@ -235,7 +233,6 @@ export const CognitoAuthProvider = (
         },
         // called when the API returns an error
         checkError: async ({ status }: { status: number }) => {
-            logger.info(`checkError [${doingCheckAuth}]:`, status);
             if (status === 401 || status === 403) {
                 const error = new AuthorisationError(`Unauthorized (${status})`);
                 error.redirectTo = mode === 'oauth' ? '/' : '/login';
@@ -245,7 +242,6 @@ export const CognitoAuthProvider = (
         },
         // called when the user navigates to a new location, to check for authentication
         checkAuth: async () => {
-            logger.info(`checkAuth called [${doingCheckAuth}]:`);
             return new Promise<void>(async (resolve, reject) => {
                 if (doingCheckAuth) {
                     return resolve();
@@ -257,9 +253,7 @@ export const CognitoAuthProvider = (
                     if (mode === 'oauth') {
                         if (oauthGrantType === 'code') {
                             if (!user) {
-                                logger.info('href', window.location.href);
                                 const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
-                                logger.info('Redirecting to Cognito login:', loginUrl);
                                 window.location.assign(loginUrl!);
                             } else {
                                 const session = await new Promise<CognitoUserSession>((resolve, reject) => {
@@ -323,7 +317,6 @@ export const CognitoAuthProvider = (
         // called when the user navigates to a new location, to check for permissions / roles
         getPermissions: async () => {
             return new Promise((resolve, reject) => {
-                logger.info(`getPermissions called [${doingCheckAuth}]:`);
                 if (doingCheckAuth) {
                     return reject('Checking auth, please try again later');
                 }
@@ -347,7 +340,6 @@ export const CognitoAuthProvider = (
         },
         getIdentity: async () => {
             return new Promise<CognitoIdentity>((resolve, reject) => {
-                logger.info(`getIdentity called [${doingCheckAuth}]:`);
                 if (doingCheckAuth) {
                     return reject();
                 }
@@ -380,76 +372,78 @@ export const CognitoAuthProvider = (
         },
         handleCallback: async () => {
             return new Promise<AuthRedirectResult | void | any>(async (resolve, reject) => {
-                logger.info(`handleCallback called [${doingCheckAuth}]:`);
+                if (oauthOptions.mode === 'username') {
+                    return reject(new Error('Username mode not supported for handleCallback'));
+                }
                 doingCheckAuth = false;
+                let tokens: ICognitoUserSessionData;
+                const url = new URL(window.location.href);
                 if (oauthOptions.oauthGrantType === 'code') {
-                    const url = new URL(window.location.href);
                     const code = url.searchParams.get('code');
                     if (!code) {
                         reject(new HttpError('No authorization code in callback URL', 400));
                     }
-                    const tokens: CognitoTokens = await resolveTokens(code!, oauthOptions);
-
-                    // Store tokens
-                    localStorage.setItem('auth', JSON.stringify(tokens));
+                    tokens = await resolveTokensFromCode(code!, oauthOptions);
 
                     // Clean up code verifier
                     sessionStorage.removeItem('pkce_code_verifier');
-
-                    user = createCognitoSession(tokens, userPool);
-
-                    logger.info('User Object Created:', user);
-
-                    // Redirect back to where user was
+                } else {
                     try {
-                        const previousUrl = localStorage.getItem('currentUrl');
-                        localStorage.removeItem('currentUrl');
-                        window.location.assign(previousUrl || '/');
-                        resolve({})
-                    } catch (error) {
-                        logger.error('Error getting previous URL:', error);
-                        reject(error);
-                    }
-                } else { //implicit flow, tokens should be in hash fragment
-                    const urlParams = new URLSearchParams(
-                        window.location.hash.substring(1)
-                    );
-                    const error = urlParams.get('error');
-                    const errorDescription = urlParams.get('error_description');
-                    const idToken = urlParams.get('id_token');
-                    const accessToken = urlParams.get('access_token');
+                        const hash = url.hash || window.location.hash;
+                        if (!hash?.startsWith('#')) {
+                            return reject(new HttpError('Invalid OAuth implicit callback URL', 400));
+                        }
+                        const hashParams = new URLSearchParams(hash.substring(1));
 
-                    if (error) {
+                        if (hashParams.has('error')) {
+                            const error = new HttpError(`${hashParams.get('error')} - ${hashParams.get('error_description') || 'OAuth implicit callback error}'}`, 400);
+                            logger.error('Error in OAuth implicit callback:', error);
+                            return reject(error);
+                        }
+                        tokens = resolveTokensFromUrl(hashParams, oauthOptions);
+                    } catch (error) {
+                        logger.error('Error resolving implicit tokens from URL hash:', error);
                         return reject(error);
                     }
-
-                    if (idToken == null || accessToken == null) {
-                        return reject(new Error('Failed to handle login callback (implicit oauth flow).'));
-                    }
-                    const session = new CognitoUserSession({
-                        IdToken: new CognitoIdToken({ IdToken: idToken }),
-                        RefreshToken: undefined,
-                        AccessToken: new CognitoAccessToken({
-                            AccessToken: accessToken,
-                        }),
-                    });
-                    const user = new CognitoUser({
-                        Username: session.getIdToken().decodePayload()[
-                            'cognito:username'
-                        ],
-                        Pool: userPool,
-                        Storage: window.localStorage,
-                    });
-                    user.setSignInUserSession(session);
-                    resolve({})
                 }
-            })
-        }
+                // Store tokens
+                localStorage.setItem('auth', JSON.stringify(tokens));
+
+                user = createCognitoSession(tokens, userPool);
+
+                // Redirect back to where user was
+                try {
+                    let previousUrl = localStorage.getItem('currentUrl');
+                    localStorage.removeItem('currentUrl');
+                    try {
+                        // only redirect to previous URL if provided, is valid and is same hostname 
+                        // this is to prevent open redirect vulnerabilities (CWE-601)
+                        const url = new URL(previousUrl!);
+                        if (url.hostname && url.hostname !== window.location.hostname) {
+                            throw new Error('Unexpected hostname in previous URL - ignoring and redirecting to home');
+                        }
+                    } catch (error) {
+                        logger.error('Error getting/parsing previous URL:', error);
+                        previousUrl = '/';
+                    }
+                    window.location.assign(previousUrl || '/');
+                } catch (error) {
+                    logger.error('Error getting previous URL:', error);
+                    reject(error);
+                }
+                resolve({})
+            });
+        },
     };
 
-    return addRefreshAuthToAuthProvider(authProvider, async () => {
-        if (aboutToExpire(accessTokenExpiryMargin!)) {
-            await refreshTokens(oauthOptions);
-        }
-    });
+    if (oauthOptions.oauthGrantType === 'code') {
+        return addRefreshAuthToAuthProvider(authProvider, async () => {
+            if (aboutToExpire(accessTokenExpiryMargin!)) {
+                await refreshTokens(oauthOptions);
+            }
+        })
+    } else {
+        return authProvider;
+    }
 };
+

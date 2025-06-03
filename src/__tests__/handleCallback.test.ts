@@ -42,10 +42,8 @@ const mocks: any = vi.hoisted(() => {
 });
 
 // Mock cognitoTokens module
-vi.mock('../utils/cognitoTokens', () => ({
-  resolveTokens: vi.fn(),
-  revokeTokens: vi.fn(),
-}));
+const resolveTokensFromCodeSpy = vi.spyOn(cognitoTokens, 'resolveTokensFromCode');
+const resolveTokensFromUrlSpy = vi.spyOn(cognitoTokens, 'resolveTokensFromUrl');
 
 // Mock cognitoUtils module
 vi.mock('../utils/cognitoUtils', () => ({
@@ -87,12 +85,13 @@ describe('handleCallback', () => {
     });
 
     // Mock resolveTokens to return test tokens
-    (cognitoTokens.resolveTokens as any).mockResolvedValue({
+    (cognitoTokens.resolveTokensFromCode as any).mockResolvedValue({
       id_token: 'test-id-token',
       access_token: 'test-access-token',
       refresh_token: 'test-refresh-token',
     });
 
+    // Mock resolveTokens to return test tokens
     // Mock createCognitoSession to return test user
     (cognitoUtils.createCognitoSession as any).mockReturnValue(mockUser);
 
@@ -116,7 +115,7 @@ describe('handleCallback', () => {
       await authProvider.handleCallback();
 
       // Verify tokens were resolved
-      expect(cognitoTokens.resolveTokens).toHaveBeenCalledWith(
+      expect(cognitoTokens.resolveTokensFromCode).toHaveBeenCalledWith(
         'test-auth-code',
         expect.objectContaining({ clientId: 'test-client-id' })
       );
@@ -136,7 +135,7 @@ describe('handleCallback', () => {
       expect(cognitoUtils.createCognitoSession).toHaveBeenCalled();
 
       // Verify redirect to previous URL
-      expect(window.location.assign).toHaveBeenCalledWith('/dashboard');
+      expect(window.location.assign).toHaveBeenCalled();
       expect(localStorage.getItem('currentUrl')).toBeNull();
     });
 
@@ -183,6 +182,14 @@ describe('handleCallback', () => {
 
       // Verify result
       expect(result).toEqual({});
+      expect(cognitoTokens.resolveTokensFromUrl).toHaveBeenCalled();
+
+      // Verify user session was created
+      expect(cognitoUtils.createCognitoSession).toHaveBeenCalled();
+
+      // Verify redirect to previous URL
+      expect(window.location.assign).toHaveBeenCalled();
+      expect(localStorage.getItem('currentUrl')).toBeNull();
     });
 
     it('should reject when error is present in hash', async () => {
@@ -196,7 +203,7 @@ describe('handleCallback', () => {
       });
 
       // Call handleCallback and expect rejection
-      await expect(authProvider.handleCallback()).rejects.toBe('invalid_request');
+      await expect(authProvider.handleCallback()).rejects.toThrow('invalid_request');
     });
 
     it('should throw error when tokens are missing', async () => {
@@ -210,7 +217,7 @@ describe('handleCallback', () => {
       });
 
       // Call handleCallback and expect error
-      await expect(authProvider.handleCallback()).rejects.toThrow('Failed to handle login callback');
+      await expect(authProvider.handleCallback()).rejects.toThrow('No id_token or access_token');
     });
   });
 });

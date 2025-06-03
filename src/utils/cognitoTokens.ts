@@ -1,10 +1,11 @@
+import { CognitoAccessToken, CognitoIdToken, ICognitoUserSessionData } from "amazon-cognito-identity-js";
 import { CognitoAuthProviderOptionsIds } from "../authProvider";
 import logger from "./logger";
+import { HttpError } from "react-admin";
 
-export type CognitoTokens = {
-  id_token: string;
-  refresh_token: string;
-  accessToken: string;
+export interface CognitoTokens extends ICognitoUserSessionData {
+  expires_in?: number;
+  created_at?: number;
 }
 
 export const revokeTokens = async (options: CognitoAuthProviderOptionsIds) => {
@@ -14,13 +15,13 @@ export const revokeTokens = async (options: CognitoAuthProviderOptionsIds) => {
     const token = auth?.refresh_token || auth?.access_token;
 
     if (!token) {
-      logger.info('Revoke tokens, no accessToken found');
+      logger.error('Revoke tokens, no accessToken found');
       return;
     }
 
     // Call the revoke endpoint 
     const revokeEndpoint = new URL(`${hostedUIUrl!.replace('/login', '')}/oauth2/revoke`);
-    const response = await fetch(revokeEndpoint, {
+    await fetch(revokeEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -30,13 +31,12 @@ export const revokeTokens = async (options: CognitoAuthProviderOptionsIds) => {
         client_id: clientId,
       }),
     });
-    logger.info('Response from revoke endpoint:', response);
   } catch (error) {
     logger.error('Error revoking tokens:', error);
   }
 };
 
-export const resolveTokens = async (code: string, options: CognitoAuthProviderOptionsIds) => {
+export const resolveTokensFromCode = async (code: string, options: CognitoAuthProviderOptionsIds) => {
 
   // Retrieve code verifier
   const codeVerifier = sessionStorage.getItem('pkce_code_verifier');
@@ -44,8 +44,6 @@ export const resolveTokens = async (code: string, options: CognitoAuthProviderOp
     throw new Error('No code verifier found');
   }
 
-  logger.info('Exchanging code with verifier:', codeVerifier);
-  logger.info('Received code:', code);
   // Exchange code for tokens
   const tokenEndpoint = `${options.hostedUIUrl!.replace('/login', '')}/oauth2/token`;
   const response = await fetch(tokenEndpoint, {
@@ -66,16 +64,33 @@ export const resolveTokens = async (code: string, options: CognitoAuthProviderOp
     throw new Error('Failed to exchange code for tokens');
   }
 
-  const tokens = await response.json();
+  const tokens: CognitoTokens = await response.json();
 
-  logger.info('Received tokens:', tokens);
-  return tokens;
+  if (!tokens.AccessToken || !tokens.IdToken) {
+    throw new Error('Missing access_token or id_token in response from Cognito Token Endpoint');
+  }
+  if (!tokens.expires_in) {
+    tokens.expires_in = tokens.AccessToken.getExpiration();
+  }
+  return {
+    created_at: tokens.AccessToken.getIssuedAt(), // Use the issued at time from AccessToken
+    ...tokens
+  } as CognitoTokens;
 }
 
 export const aboutToExpire = (minTimeMS: number) => {
-  const auth = JSON.parse(localStorage.getItem('auth') || '{}');
+  const auth: CognitoTokens = JSON.parse(localStorage.getItem('auth') || '{}');
+
   const { created_at, expires_in } = auth;
-  return Date.now() - (created_at + expires_in) < minTimeMS;
+  if (created_at && expires_in) {
+    return Date.now() - (created_at + expires_in) < minTimeMS;
+  }
+  if (!created_at) {
+    return false;
+  }
+  if (auth.AccessToken && auth.AccessToken.getExpiration() * 1000 - Date.now() < minTimeMS) {
+    return true;
+  }
 }
 
 export const refreshTokens = async (options: CognitoAuthProviderOptionsIds) => {
@@ -109,6 +124,7 @@ export const refreshTokens = async (options: CognitoAuthProviderOptionsIds) => {
     // Update stored tokens
     localStorage.setItem('auth', JSON.stringify({
       ...auth,
+      created_at: Math.floor(Date.now() / 1000),
       access_token: tokens.access_token,
       id_token: tokens.id_token,
     }));
@@ -117,4 +133,30 @@ export const refreshTokens = async (options: CognitoAuthProviderOptionsIds) => {
   } catch (error) {
     return Promise.reject(error);
   }
+}
+
+export const resolveTokensFromUrl = (urlHash: URLSearchParams, oauthOptions: CognitoAuthProviderOptionsIds) => {
+  const accessToken = urlHash.get('access_token');
+  const idToken = urlHash.get('id_token');
+  const expiresIn = urlHash.get('expires_in') || "3600" // Default to 1 hour if not provided;
+  if (!idToken || !accessToken) {
+    logger.error('No id_token or access_token in OAuth implicit callback:', urlHash);
+    throw new HttpError('No id_token or access_token in OAuth implicit callback', 400);
+  }
+
+  const tokens: CognitoTokens = {
+    IdToken: new CognitoIdToken({ IdToken: idToken }),
+    RefreshToken: undefined,
+    AccessToken: new CognitoAccessToken({
+      AccessToken: accessToken,
+    }),
+    created_at: Math.floor(Date.now() / 1000),
+    expires_in: parseInt(expiresIn!, 10)
+  };
+
+  if (!accessToken || !idToken || !expiresIn) {
+    throw new Error('Missing required tokens in URL parameters');
+  }
+
+  return tokens;
 }
