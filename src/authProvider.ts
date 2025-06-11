@@ -249,26 +249,8 @@ export const CognitoAuthProvider = (
                     logger.error('CheckAuth error:', error?.message, url);
                     if (mode === 'oauth') {
                         if (oauthGrantType === 'code') {
-                            if (!user) {
-                                const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
-                                window.location.assign(loginUrl!);
-                            } else {
-                                const session = await new Promise<CognitoUserSession>((resolve, reject) => {
-                                    user!.getSession((err: Error | null, session: CognitoUserSession) => {
-                                        if (err) {
-                                            user = null;
-                                            reject(err);
-                                        } else {
-                                            resolve(session);
-                                        }
-                                    });
-                                });
-
-                                if (!session || !session.isValid()) {
-                                    const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
-                                    window.location.assign(loginUrl!);
-                                }
-                            }
+                            const loginUrl = await pkceCognitoLogin(window.location.href, oauthOptions);
+                            window.location.assign(loginUrl!);
                             doingCheckAuth = false;
                             return resolve();
                         } else { //implicit flow
